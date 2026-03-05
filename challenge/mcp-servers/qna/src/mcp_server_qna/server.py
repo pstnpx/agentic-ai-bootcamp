@@ -155,12 +155,71 @@ async def main(db_path:str):
     mcp = Server("qna")
     @mcp.list_tools()
     async def handle_list_tools() -> list[types.Tool]:
-        ## TODO
-       ## Return tool schema
-       pass
+        return [
+            types.Tool(
+                name="lookup_track",
+                description="Lookup a track in Chinook DB",
+                inputSchema={
+                    "type": "object", 
+                    "properties": {
+                        "track_name": {"type": "string", "description": "Track name"},
+                        "album_title": {"type": "string", "description": "Album title"},
+                        "artist_name": {"type": "string", "description": "Artist name"},
+                    }, 
+                    "required": []},
+            ),
+            types.Tool(
+                name="lookup_album",
+                description="Lookup an album in Chinook DB",
+                inputSchema={
+                    "type": "object", 
+                    "properties": {
+                        "track_name": {"type": "string", "description": "Track name"},
+                        "album_title": {"type": "string", "description": "Album title"},
+                        "artist_name": {"type": "string", "description": "Artist name"},
+                    }, 
+                    "required": []},
+            ),
+            types.Tool(
+                name="lookup_artist",
+                description="Lookup an artist in Chinook DB",
+                inputSchema={
+                    "type": "object", 
+                    "properties": {
+                        "track_name": {"type": "string", "description": "Track name"},
+                        "album_title": {"type": "string", "description": "Album title"},
+                        "artist_name": {"type": "string", "description": "Artist name"},
+                    }, 
+                    "required": []},            
+            )
+        ]
 
     @mcp.call_tool()
     async def handle_call_tool(name: str, args: dict[str, Any] | None):
+        input_keys = { "track_name", "album_title", "artist_name"}
+        # Empty args
+        if args is None or args == {}:
+            raise ValueError("args cannot be None")
+        # Invalid keys
+        invalid_keys = set(args.keys()) - input_keys
+        if invalid_keys:
+            raise ValueError(f"Invalid keys in args: {invalid_keys}")
+        # Empty values
+        empty_keys = [k for k, v in args.items() if v is None or v == ""]
+        if empty_keys:
+            raise ValueError(f"Empty values for keys: {empty_keys}")
+        
+        try :
+            if name == "lookup_track":
+                return qna._lookup_track(**args)
+            elif name == "lookup_album":
+                return qna._lookup_album(**args)
+            elif name == "lookup_artist":
+                return qna._lookup_artist(**args)
+            else:
+                raise ValueError(f"Unknown tool: {name}")
+        except Exception as e:
+            return [types.TextContent(type="text", text=f"Error: {str(e)}")]
         ## TODO
         ## implement tool calling logic
         pass

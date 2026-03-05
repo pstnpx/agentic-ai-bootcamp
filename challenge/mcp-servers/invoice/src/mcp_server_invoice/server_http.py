@@ -219,15 +219,48 @@ def main(db_path:str,nvidia_api_key:str,mcp_server_qna_path:str,inf_url:str):
     mcp = Server("invoice")
     @mcp.list_tools()
     async def handle_list_tools() -> list[types.Tool]:
-        ## TODO
-        ## return schema for tools
-        pass
+        return [
+            types.Tool(
+                name="invoice_lookup", 
+                description="Find all of the Invoice Line IDs",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "customer_first_name": {"type": "string", "description": "Customer first name"},
+                        "customer_last_name": {"type": "string", "description": "Customer last name"},
+                        "customer_phone": {"type": "string", "description": "Customer phone"},
+                        "track_name": {"type": "string", "description": "Track name"},
+                        "album_title": {"type": "string", "description": "Album title"},
+                        "artist_name": {"type": "string", "description": "Artist name"},
+                        "purchase_date_iso_8601": {"type": "string", "description": "Purchase date ISO 8601"},  
+                    }
+                }
+            ),        
+           types.Tool(
+               name="invoice_refund",
+               description="Given an Invoice ID and/or Invoice Line IDs, delete the relevant Invoice/InvoiceLine records",
+               inputSchema={
+                   "type": "object",
+                   "properties": {
+                       "invoice_id": {"type": "number", "description": "Invoice ID"},
+                       "invoice_line_ids": {"type": "array", "items": {"type": "number"}, "description": "Invoice Line IDs"},
+                   }
+               }
+           )
+        ]
 
     @mcp.call_tool()
     async def handle_call_tool(name: str, args: dict[str, Any] | None):
-        ## TODO
-        ## implement tool calling logic
-        pass
+        try :
+            if name == "invoice_lookup":
+                return invoice._lookup_invoice(**args)
+            elif name == "invoice_refund":
+                return invoice._refund_invoice(**args)
+            else:
+                raise ValueError(f"Unknown tool: {name}")
+        except Exception as e:
+            logger.error(f"Error executing tool '{name}': {e}")
+            return [types.TextContent(type="text", text=f"Error: {str(e)}")]
     
     # Create the session manager with true stateless mode
     session_manager = StreamableHTTPSessionManager(

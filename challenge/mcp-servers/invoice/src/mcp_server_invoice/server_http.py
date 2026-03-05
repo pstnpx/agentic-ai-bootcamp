@@ -210,12 +210,6 @@ class ExternalAgents:
         self.qna_agent = qna_agent.QNAAgent(nvidia_api_key,mcp_server_qna_path,inf_url)
 
     async def _media_lookup(self,query) -> List[types.TextContent]:
-        return [
-            types.TextContent(
-                type="text",
-                text="TODO"
-            )
-        ]
         result = await self.qna_agent.run(query)
 
         return [
@@ -224,10 +218,6 @@ class ExternalAgents:
                 text=result
             )
         ]
-
-        ## TODO
-        ## invoke qna agent and return output
-        pass
 
 def main(db_path:str,nvidia_api_key:str,mcp_server_qna_path:str,inf_url:str):
     invoice = Invoice(db_path)
@@ -286,7 +276,7 @@ def main(db_path:str,nvidia_api_key:str,mcp_server_qna_path:str,inf_url:str):
                 return invoice._invoice_refund(**args)
             elif name == "media_lookup":
                 logger.info(f"media_lookup: {args}")
-                return external_agent._media_lookup(**args)
+                return await external_agent._media_lookup(**args)
             else:
                 raise ValueError(f"Unknown tool: {name}")
         except Exception as e:

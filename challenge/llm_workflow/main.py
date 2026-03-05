@@ -3,7 +3,7 @@ import json
 
 from langchain.chat_models import init_chat_model
 from langchain_core.runnables import RunnableConfig
-from langgraph.graph import END, StateGraph
+from langgraph.graph import END, StateGraph, START
 from langgraph.graph.message import AnyMessage, add_messages
 from langchain.schema import SystemMessage
 from langchain_core.messages import convert_to_openai_messages
@@ -17,12 +17,14 @@ import argparse
 
 from .mcp_http_client import MCPHTTPCLIENT
 
-model_id='nvidia/llama-3.3-nemotron-super-49b-v1'
+# model_id='nvidia/llama-3.3-nemotron-super-49b-v1.5'
+model_id = 'meta/llama-3.2-3b-instruct'
 
 class State(TypedDict):
     """Agent state."""
     ## TODO
     ## define required graph states
+    messages: Annotated[list, add_messages]
 
 # Instructions for extracting the user/purchase info from the conversation.
 gather_info_instructions = """You are managing an online music store that sells song tracks. \
@@ -67,6 +69,13 @@ async def store_agent(state:State,config: RunnableConfig):
     
     ## TODO
     ## list tools, format tools to openai function calling schema, get response from NVIDIA NIM/LLM
+    tools = await mcp_client.list_tools()
+
+    response = await openAI_client.invoke_async(messages,functions=tools)
+    stop_reason = response.stop_reason
+
+    tool_name = response.choices[0].message.tool_name
+    tool_message = response.choices[0].message
 
     if stop_reason == 'tool_calls':
         for tool_call in response.choices[0].message.tool_calls:
@@ -75,6 +84,7 @@ async def store_agent(state:State,config: RunnableConfig):
             ## Implement tool calling
             
             if tool_name == 'invoice_refund':
+                result = await mcp_client.session.call_tool("invoice_refund", tool_call.arguments)
                 content = f"You have been refunded a total of: ${result}. Is there anything else I can help with?"
                 followup = content
                 output = {
@@ -82,6 +92,7 @@ async def store_agent(state:State,config: RunnableConfig):
                     "followup": followup,
                 }
             elif tool_name == 'invoice_lookup':
+                tool_result = await mcp_client.session.call_tool("invoice_lookup", tool_call.arguments)
                 result = json.loads(tool_result.content[0].text)
                 if not result:
                     content = "We did not find any purchases associated with the information you've provided. Are you sure you've entered all of your information correctly?"
@@ -99,7 +110,7 @@ async def store_agent(state:State,config: RunnableConfig):
                         "invoice_line_ids": [item["invoice_line_id"] for item in result],
                     }
             elif tool_name == 'media_lookup':
-                content = result
+                content = await mcp_client.call_tool(tool_name, tool_call.arguments)
                 followup = content
                 output = {
                     "messages": [tool_message,{"role": "assistant", "content": content}],
@@ -164,9 +175,50 @@ def compile_followup(state: State) -> dict:
     return {}
 
 def create_workflow(memory):
-    # Agent definition
+
     workflow = StateGraph(State)
-    
+
+    # ---- Nodes ----
+    workflow.add_node("intent_classifier", intent_classifier)
+    workflow.add_node("human", human_node)
+    workflow.add_node("compile_followup", compile_followup)
+
+    # ---- Entry ----
+    workflow.add_edge(START, "intent_classifier")
+
+    # ---- Routing ----
+    workflow.add_conditional_edges(
+        "intent_classifier",
+        select_node,
+        {
+            "human": "human",
+            "continue": "compile_followup"
+        },
+    )
+
+    # If human answers, continue the workflow
+    workflow.add_edge("human", "compile_followup")
+
+    # ---- End ----
+    workflow.add_edge("compile_followup", END)
+
+    # ---- Compile ----
+    app = workflow.compile(checkpointer=memory)
+
+    return app
+# def create_workflow(memory):
+#     # Agent definition
+#     workflow = StateGraph(State)
+#     # Add the chatbot node
+#     workflow.add_node("human_node", human_node)
+
+#     # Connect START -> chatbot (entry point)
+#     workflow.add_edge(START, "chatbot")
+
+#     # Compile the graph
+#     app = workflow.compile()
+
+#     return app
     ## TODO
     ## Define nodes and edges for graph
 

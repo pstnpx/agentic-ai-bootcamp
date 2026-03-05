@@ -26,29 +26,29 @@ class QNAAgent:
                 "mcp-server-qna",
                 "--db-path",
                 "data/chinook.db"
-            ],
-            env=None
+            ]
         )
 
         self.agent = Agent(
             model = OpenAIModel(
-                model_name="meta/llama3-70b-instruct",
+                model_name="nvidia/llama-3.3-nemotron-super-49b-v1.5",
                 provider=OpenAIProvider(
                     api_key=nvidia_api_key,
                     base_url=inf_url
                 )
             ),
             system_prompt=system_prompt,
-            mcp_servers=[self.mcp_server]
+            mcp_servers=[self.mcp_server],
+            output=AgentOutput
         )
         ## TODO
         ## define MCP server, model and agent``
         pass
 
     async def run(self, query):
-        result = await self.agent.run(query)
-        print(result)
-        return result.data
+        async with self.agent.run_mcp_servers():
+            result = await self.agent.run(query)
+        return result.output
         ## TODO
         ## run agent with mcp servers and return output
         pass

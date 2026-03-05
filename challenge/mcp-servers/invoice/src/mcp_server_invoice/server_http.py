@@ -260,7 +260,7 @@ def main(db_path:str,nvidia_api_key:str,mcp_server_qna_path:str,inf_url:str):
                 inputSchema={
                     "type": "object",
                     "properties": {
-                        "query": {"type": "string", "description": "Query"}
+                        "query": {"type": "string", "description": "Query the media"}
                     },
                     "required": ["query"]
                 }

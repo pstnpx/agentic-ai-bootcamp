@@ -6,9 +6,11 @@ async def test_mcp_invoice_server(mcp_server_url):
     async with MCPHTTPCLIENT(mcp_server_url) as mcp_client:
         # Execute tool call
         tool_result = await mcp_client.session.call_tool("media_lookup", {"query":"tracks by James Brown"})
-        print(tool_result)
-        # output = tool_result.content[0].text
-        # print(output)
+        # print(tool_result)
+        output = tool_result.content[0].text
+        
+        print(output)
+        print("="*50)
 
         # tool_result = await mcp_client.session.call_tool("invoice_lookup", {
         #     "customer_first_name": "Madalena",

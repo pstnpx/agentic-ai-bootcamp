@@ -46,8 +46,7 @@ class QNAAgent:
         pass
 
     async def run(self, query):
-        async with self.agent:
-            result = await self.agent.run(query)
+        result = await self.agent.run(query)
         print(result)
         return result.data
         ## TODO

@@ -126,10 +126,10 @@ class Invoice:
         customer_first_name: str,
         customer_last_name: str,
         customer_phone: str,
-        track_name: str | None,
-        album_title: str | None,
-        artist_name: str | None,
-        purchase_date_iso_8601: str | None,
+        track_name: str | None = None,
+        album_title: str | None = None,
+        artist_name: str | None = None,
+        purchase_date_iso_8601: str | None = None,
     ) -> List[types.TextContent]:
         """Find all of the Invoice Line IDs in the Chinook DB for the given filters."""
         # Connect to the database
@@ -208,7 +208,23 @@ class Invoice:
 class ExternalAgents:
     def __init__(self,nvidia_api_key,mcp_server_qna_path,inf_url):
         self.qna_agent = qna_agent.QNAAgent(nvidia_api_key,mcp_server_qna_path,inf_url)
+
     async def _media_lookup(self,query) -> List[types.TextContent]:
+        return [
+            types.TextContent(
+                type="text",
+                text="TODO"
+            )
+        ]
+        result = await self.qna_agent.run(query)
+
+        return [
+            types.TextContent(
+                type="text",
+                text=result
+            )
+        ]
+
         ## TODO
         ## invoke qna agent and return output
         pass
@@ -233,10 +249,11 @@ def main(db_path:str,nvidia_api_key:str,mcp_server_qna_path:str,inf_url:str):
                         "album_title": {"type": "string", "description": "Album title"},
                         "artist_name": {"type": "string", "description": "Artist name"},
                         "purchase_date_iso_8601": {"type": "string", "description": "Purchase date ISO 8601"},  
-                    }
+                    },
+                    "required": ["customer_first_name", "customer_last_name", "customer_phone"]
                 }
             ),        
-           types.Tool(
+            types.Tool(
                name="invoice_refund",
                description="Given an Invoice ID and/or Invoice Line IDs, delete the relevant Invoice/InvoiceLine records",
                inputSchema={
@@ -246,16 +263,30 @@ def main(db_path:str,nvidia_api_key:str,mcp_server_qna_path:str,inf_url:str):
                        "invoice_line_ids": {"type": "array", "items": {"type": "number"}, "description": "Invoice Line IDs"},
                    }
                }
-           )
+            ),
+            types.Tool(
+                name="media_lookup",
+                description="Find all of the media",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "query": {"type": "string", "description": "Query"}
+                    },
+                    "required": ["query"]
+                }
+            )
         ]
 
     @mcp.call_tool()
     async def handle_call_tool(name: str, args: dict[str, Any] | None):
         try :
             if name == "invoice_lookup":
-                return invoice._lookup_invoice(**args)
+                return invoice._invoice_lookup(**args)
             elif name == "invoice_refund":
-                return invoice._refund_invoice(**args)
+                return invoice._invoice_refund(**args)
+            elif name == "media_lookup":
+                logger.info(f"media_lookup: {args}")
+                return external_agent._media_lookup(**args)
             else:
                 raise ValueError(f"Unknown tool: {name}")
         except Exception as e:

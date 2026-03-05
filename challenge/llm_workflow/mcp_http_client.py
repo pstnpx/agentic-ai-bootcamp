@@ -5,16 +5,26 @@ import os
 
 class MCPHTTPCLIENT:
     def __init__(self,url):
-        ## TODO
-        ## initialize any required class variables
-        pass
+        self.url = url
+        self.exit_stack = AsyncExitStack()
+        self.session = None
 
     async def connect(self):
-        ## TODO
-        ## connect to mcp server and initialize client session
-        pass
+        transport = await self.exit_stack.enter_async_context(
+            streamablehttp_client(self.url)
+        )
+
+        # create MCP client session
+        self.session = await self.exit_stack.enter_async_context(
+            ClientSession(*transport)
+        )
+        await self.session.initialize()
+
+        return self.session
+
+    async def list_tools(self):
+        tool_list = await self.session.list_tools()
+        return tool_list.tools
 
     async def cleanup(self):
-        ## TODO
-        ## clean up resources
-        pass
+        await self.exit_stack.aclose()
